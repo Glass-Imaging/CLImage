@@ -112,6 +112,56 @@ struct AndroidBitmap {
     }
 };
 
+struct AndroidBitmapThreadsafe {
+  jobject _bitmap;
+  AndroidBitmapInfo _info;
+
+  AndroidBitmapThreadsafe(JNIEnv *env, jobject bitmap) {
+      _bitmap = bitmap;
+      int status = AndroidBitmap_getInfo(env, bitmap, &this->_info);
+      if (status != ANDROID_BITMAP_RESULT_SUCCESS) {
+          throw std::runtime_error(
+              "Failed accessing Android Bitmap object: " + std::to_string(status));
+      }
+  }
+
+  [[nodiscard]] const AndroidBitmapInfo &info() const { return _info; }
+
+  template<typename T>
+  [[nodiscard]] std::span<T> lockPixels(JNIEnv *env) const {
+      uint8_t *bitmapData = nullptr;
+      int status = AndroidBitmap_lockPixels(env, _bitmap, (void **) &bitmapData);
+      if (status != ANDROID_BITMAP_RESULT_SUCCESS) {
+          throw std::runtime_error(
+              "AndroidBitmapInfo::lockPixels failure: " + std::to_string(status));
+      }
+      int pixelSize = 0;
+      switch (_info.format) {
+          case ANDROID_BITMAP_FORMAT_RGBA_8888:pixelSize = 4;
+              break;
+          case ANDROID_BITMAP_FORMAT_RGB_565:
+          case ANDROID_BITMAP_FORMAT_RGBA_4444:pixelSize = 2;
+              break;
+          case ANDROID_BITMAP_FORMAT_A_8:pixelSize = 1;
+              break;
+          case ANDROID_BITMAP_FORMAT_RGBA_F16:pixelSize = 8;
+              break;
+          default:
+              throw std::runtime_error("Unexpected Bitmap format: " + std::to_string(_info.format));
+      }
+      assert(pixelSize * _info.width == _info.stride);
+      return std::span((T *) bitmapData, pixelSize * _info.width * _info.height / sizeof(T));
+  }
+
+  void unLockPixels(JNIEnv *env) const {
+      int status = AndroidBitmap_unlockPixels(env, _bitmap);
+      if (status != ANDROID_BITMAP_RESULT_SUCCESS) {
+          throw std::runtime_error(
+              "AndroidBitmapInfo::unLockPixels failure: " + std::to_string(status));
+      }
+  }
+};
+
 }  // namespace gls
 
 #endif  // GLS_ANDROID_SUPPORT_H

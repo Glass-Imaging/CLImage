@@ -21,9 +21,15 @@
 #include "demosaic.hpp"
 #include "raw_converter.hpp"
 
+void IMX492DngMetadata(gls::tiff_metadata *dng_metadata);
+void IMX492ExifMetadata(gls::tiff_metadata *exif_metadata, uint16_t analogGain, float exposureDuration);
+DemosaicParameters IMX492DemosaicParameters(gls::tiff_metadata *exif_metadata, bool useLTM);
 gls::image<gls::rgb_pixel>::unique_ptr demosaicIMX492DNG(RawConverter* rawConverter, const std::filesystem::path& input_path);
 void calibrateIMX492(RawConverter* rawConverter, const std::filesystem::path& input_dir);
 
+void IMX571DngMetadata(gls::tiff_metadata *dng_metadata);
+void IMX571ExifMetadata(gls::tiff_metadata *exif_metadata, uint16_t analogGain, float exposureDuration);
+DemosaicParameters IMX571DemosaicParameters(gls::tiff_metadata *exif_metadata, bool useLTM);
 gls::image<gls::rgb_pixel>::unique_ptr demosaicIMX571DNG(RawConverter* rawConverter, const std::filesystem::path& input_path);
 void calibrateIMX571(RawConverter* rawConverter, const std::filesystem::path& input_dir);
 

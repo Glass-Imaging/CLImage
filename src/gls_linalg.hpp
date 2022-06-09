@@ -19,6 +19,7 @@
 #include <array>
 #include <span>
 #include <vector>
+#include <cassert>
 
 #include <iostream>
 #include <stdexcept>

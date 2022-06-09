@@ -180,6 +180,74 @@ gls::image<gls::rgb_pixel>::unique_ptr calibrateIMX492DNG(RawConverter* rawConve
     return RawConverter::convertToRGBImage(*rawConverter->demosaicImage(*inputImage, demosaicParameters, &rotated_gmb_position, rotate_180));
 }
 
+void IMX492DngMetadata(gls::tiff_metadata *dng_metadata) {
+    // Leaky IR
+    dng_metadata->insert({ TIFFTAG_COLORMATRIX1, std::vector<float>{ 1.4955, -0.6760, -0.1453, -0.1341, 1.0072, 0.1269, -0.0647, 0.1987, 0.4304 } });
+    dng_metadata->insert({ TIFFTAG_ASSHOTNEUTRAL, std::vector<float>{ 1 / 1.73344, 1, 1 / 1.68018 } });
+
+    // Gzikai
+    // dng_metadata.insert({ TIFFTAG_COLORMATRIX1, std::vector<float>{ 1.6864, -0.7955, -0.3059, 0.0838, 1.0317, -0.1155, 0.0586, 0.0492, 0.3925 } });
+    // dng_metadata.insert({ TIFFTAG_ASSHOTNEUTRAL, std::vector<float>{ 1 / 2.0777, 1.0000, 1 / 1.8516 } });
+
+    // Kolari
+    // dng_metadata.insert({ TIFFTAG_COLORMATRIX1, std::vector<float>{ 0.6963, -0.2447, -0.1353, -0.3240, 1.2994, 0.0246, -0.0190, 0.1222, 0.4874 } });
+    // dng_metadata.insert({ TIFFTAG_ASSHOTNEUTRAL, std::vector<float>{ 1 / 3.7730, 1.0000, 1 / 1.6040 } });
+
+    dng_metadata->insert({ TIFFTAG_CFAREPEATPATTERNDIM, std::vector<uint16_t>{ 2, 2 } });
+    dng_metadata->insert({ TIFFTAG_CFAPATTERN, std::vector<uint8_t>{ 1, 2, 0, 1 } });
+    dng_metadata->insert({ TIFFTAG_BLACKLEVEL, std::vector<float>{ 0 } });
+    dng_metadata->insert({ TIFFTAG_WHITELEVEL, std::vector<uint32_t>{ 0xfff } });
+    dng_metadata->insert({ TIFFTAG_MAKE, "Glass Imaging" });
+    dng_metadata->insert({ TIFFTAG_UNIQUECAMERAMODEL, "Glass 1" });
+    dng_metadata->insert({ TIFFTAG_ORIENTATION,(uint16_t) ORIENTATION_BOTRIGHT}); // Image is Rotated 180 degrees
+
+
+    /*
+    dng_metadata.insert({ TIFFTAG_COLORMATRIX1, std::vector<float>{ 0.6963, -0.2447, -0.1353, -0.3240, 1.2994, 0.0246, -0.0190, 0.1222, 0.4874 } });
+    dng_metadata.insert({ TIFFTAG_ASSHOTNEUTRAL, std::vector<float>{ 1 / 3.7730, 1.0000, 1 / 1.6040 } });
+
+    dng_metadata.insert({ TIFFTAG_CFAREPEATPATTERNDIM, std::vector<uint16_t>{ 2, 2 } });
+    dng_metadata.insert({ TIFFTAG_CFAPATTERN, std::vector<uint8_t>{ 1, 2, 0, 1 } });
+    dng_metadata.insert({ TIFFTAG_BLACKLEVEL, std::vector<float>{ 0 } });
+    dng_metadata.insert({ TIFFTAG_WHITELEVEL, std::vector<uint32_t>{ 0xfff } });
+    dng_metadata.insert({ TIFFTAG_MAKE, "Glass Imaging" });
+    dng_metadata.insert({ TIFFTAG_UNIQUECAMERAMODEL, "Glass 1" });
+     */
+}
+
+void IMX492ExifMetadata(gls::tiff_metadata *exif_metadata,
+                        uint16_t analogGain,
+                        float exposureDuration) {
+    exif_metadata->insert({EXIFTAG_ISOSPEEDRATINGS, std::vector<uint16_t>{analogGain}});
+    exif_metadata->insert({EXIFTAG_EXPOSURETIME, exposureDuration});
+}
+
+DemosaicParameters IMX492DemosaicParameters(gls::tiff_metadata *exif_metadata, bool useLTM) {
+    DemosaicParameters demosaicParameters = {
+        .rgbConversionParameters = {
+            .contrast = 1.05,
+            .saturation = 1.0,
+            .toneCurveSlope = 3.5,
+            .localToneMapping = useLTM
+        }
+    };
+
+    float iso = 100;
+    const auto exifIsoSpeedRatings = getVector<uint16_t>(*exif_metadata, EXIFTAG_ISOSPEEDRATINGS);
+    if (exifIsoSpeedRatings.size() > 0) {
+        iso = exifIsoSpeedRatings[0];
+    }
+
+    const auto nlfParams = nlfFromIso<5>(NLF_IMX492, iso);
+    const auto denoiseParameters = IMX492DenoiseParameters(iso);
+    demosaicParameters.noiseModel.rawNlf = nlfParams.first;
+    demosaicParameters.noiseModel.pyramidNlf = nlfParams.second;
+    demosaicParameters.noiseLevel = denoiseParameters.first;
+    demosaicParameters.denoiseParameters = denoiseParameters.second;
+
+    return demosaicParameters;
+}
+
 void calibrateIMX492(RawConverter* rawConverter, const std::filesystem::path& input_dir) {
     struct CalibrationEntry {
         int iso;
