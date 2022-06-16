@@ -221,3 +221,10 @@ gls::cl_image_2d<gls::rgba_pixel>* RawConverter::fastDemosaicImage(const gls::im
     clRGBAImage.unmapImage(rgbaImage);
     return rgbImage;
 }
+
+/*static*/ gls::image<gls::rgba_pixel>::unique_ptr RawConverter::convertToRGBAImage(const gls::cl_image_2d<gls::rgba_pixel>& clRGBAImage) {
+    auto rgbaImage = std::make_unique<gls::image<gls::rgba_pixel>>(clRGBAImage.width, clRGBAImage.height);
+    clRGBAImage.copyPixelsTo(&(*rgbaImage));
+
+    return rgbaImage;
+}

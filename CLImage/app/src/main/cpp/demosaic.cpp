@@ -52,7 +52,7 @@ gls::image<gls::rgb_pixel>::unique_ptr demosaicImage(const gls::image<gls::luma_
     return rgbImage;
 }
 
-gls::image<gls::rgb_pixel>::unique_ptr fastDemosaicImage(const gls::image<gls::luma_pixel_16>& rawImage,
+gls::image<gls::rgba_pixel>::unique_ptr fastDemosaicImage(const gls::image<gls::luma_pixel_16>& rawImage,
                                                           const DemosaicParameters& demosaicParameters) {
     gls::OpenCLContext glsContext("");
 
@@ -62,12 +62,12 @@ gls::image<gls::rgb_pixel>::unique_ptr fastDemosaicImage(const gls::image<gls::l
 
     auto clsRGBImage = rawConverter->fastDemosaicImage(rawImage, demosaicParameters);
 
-    auto rgbImage = RawConverter::convertToRGBImage(*clsRGBImage);
+    auto rgbaImage = RawConverter::convertToRGBAImage(*clsRGBImage);
 
     auto t_end = std::chrono::high_resolution_clock::now();
     double elapsed_time_ms = std::chrono::duration<double, std::milli>(t_end-t_start).count();
 
     LOG_INFO(TAG) << "OpenCL Pipeline Execution Time: " << (int) elapsed_time_ms << "ms for image of size: " << rawImage.width << " x " << rawImage.height << std::endl;
 
-    return rgbImage;
+    return rgbaImage;
 }

@@ -244,6 +244,54 @@ gls::image<gls::rgb_pixel>::unique_ptr calibrateIMX571DNG(RawConverter* rawConve
     return result;
 }
 
+void IMX571DngMetadata(gls::tiff_metadata *dng_metadata) {
+    dng_metadata->insert({ TIFFTAG_COLORMATRIX1, std::vector<float>{ 1.3707, -0.5861, -0.1600, -0.1797, 1.0599, 0.1198, 0.0074, 0.1327, 0.4114 } });
+    dng_metadata->insert({ TIFFTAG_ASSHOTNEUTRAL, std::vector<float>{ 1 / 1.8796, 1.0000, 1 / 1.7351 } });
+
+    // Doug's additions
+    dng_metadata->insert({ TIFFTAG_CFAREPEATPATTERNDIM, std::vector<uint16_t>{ 2, 2 } });
+    dng_metadata->insert({ TIFFTAG_CFAPATTERN, std::vector<uint8_t>{ 1, 0, 2, 1 } });
+    dng_metadata->insert({ TIFFTAG_BLACKLEVEL, std::vector<float>{ 0 } });
+    dng_metadata->insert({ TIFFTAG_WHITELEVEL, std::vector<uint32_t>{ 0xffff } });
+    // End Dougs Additions
+
+    dng_metadata->insert({ TIFFTAG_MAKE, "Glass Imaging" });
+    dng_metadata->insert({ TIFFTAG_UNIQUECAMERAMODEL, "Glass 2" });
+}
+
+void IMX571ExifMetadata(gls::tiff_metadata *exif_metadata,
+                        uint16_t analogGain,
+                        float exposureDuration) {
+    exif_metadata->insert({EXIFTAG_ISOSPEEDRATINGS, std::vector<uint16_t>{analogGain}});
+    exif_metadata->insert({EXIFTAG_EXPOSURETIME, exposureDuration});
+}
+
+DemosaicParameters IMX571DemosaicParameters(gls::tiff_metadata *exif_metadata, bool useLTM) {
+    DemosaicParameters demosaicParameters = {
+        .rgbConversionParameters = {
+            .contrast = 1.05,
+            .saturation = 1.0,
+            .toneCurveSlope = 3.5,
+            .localToneMapping = useLTM
+        }
+    };
+
+    float iso = 100;
+    const auto exifIsoSpeedRatings = getVector<uint16_t>(*exif_metadata, EXIFTAG_ISOSPEEDRATINGS);
+    if (exifIsoSpeedRatings.size() > 0) {
+        iso = exifIsoSpeedRatings[0];
+    }
+
+    const auto nlfParams = nlfFromIso<5>(NLF_IMX571, iso);
+    const auto denoiseParameters = IMX571DenoiseParameters(iso);
+    demosaicParameters.noiseModel.rawNlf = nlfParams.first;
+    demosaicParameters.noiseModel.pyramidNlf = nlfParams.second;
+    demosaicParameters.noiseLevel = denoiseParameters.first;
+    demosaicParameters.denoiseParameters = denoiseParameters.second;
+
+    return demosaicParameters;
+}
+
 void calibrateIMX571(RawConverter* rawConverter, const std::filesystem::path& input_dir) {
     struct CalibrationEntry {
         int iso;

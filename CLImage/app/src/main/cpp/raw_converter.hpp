@@ -51,6 +51,7 @@ public:
 
     static gls::image<gls::rgb_pixel>::unique_ptr convertToRGBImage(const gls::cl_image_2d<gls::rgba_pixel>& clRGBAImage);
 
+    static gls::image<gls::rgba_pixel>::unique_ptr convertToRGBAImage(const gls::cl_image_2d<gls::rgba_pixel> &clRGBAImage);
 };
 
 #endif /* raw_converter_hpp */

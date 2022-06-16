@@ -242,7 +242,7 @@ gls::image<gls::rgb_pixel>::unique_ptr demosaicRicohGRIII2DNG(RawConverter* rawC
         .rgbConversionParameters = {
             .localToneMapping = true
         },
-        .ltmParameters = {
+        .ltmParameters {
             .guidedFilterEps = 0.01,
             .shadows = 1.25,
             .highlights = 1,
